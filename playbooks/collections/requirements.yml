@@ -1,0 +1,5 @@
+---
+collections:
+  - name: https://github.com/neil1taylor/ansible-collection-vvm.git
+    type: git
+    version: v0.1.2
