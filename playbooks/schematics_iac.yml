@@ -1,0 +1,97 @@
+---
+# Make or remove a guest network, a datastore and a VM, as a Schematics Action.
+#
+# Inputs (Action input variables):
+#   vvm_state          present (default) or absent
+#   vvm_api_url        the control plane's address, reachable from the runner
+#   vvm_api_token      a bearer token; mark it secure in the Action
+#   vvm_cluster_id, vvm_name_prefix
+#   vvm_vlan_id, vvm_vpc_subnet_id, vvm_cidr, vvm_ipam_start, vvm_ipam_end
+#   vvm_zone, vvm_mount_path, vvm_size_gib (optional, 10)
+#   vvm_golden_image, vvm_boot_subnet_id, vvm_ssh_public_key
+#
+# With vvm_state=absent only the cluster and the prefix are used to find what
+# to remove: each resource is addressed by name.
+
+- name: Make or remove a network, a datastore and a VM
+  hosts: localhost
+  gather_facts: false
+  vars:
+    vvm_state: present
+    vvm_wait_seconds: 3600
+  module_defaults:
+    ibm.vvm.vvm_network: &conn
+      vvm_api_url: "{{ vvm_api_url }}"
+      vvm_api_token: "{{ vvm_api_token }}"
+    ibm.vvm.vvm_datastore: *conn
+    ibm.vvm.vvm_vm: *conn
+  tasks:
+    - name: Check the state asked for
+      ansible.builtin.assert:
+        that: vvm_state in ['present', 'absent']
+        quiet: true
+
+    - name: Make the guest network
+      ibm.vvm.vvm_network:
+        name: "{{ vvm_name_prefix }}-net"
+        cluster_id: "{{ vvm_cluster_id }}"
+        vlan_id: "{{ vvm_vlan_id | int }}"
+        vpc_subnet_id: "{{ vvm_vpc_subnet_id }}"
+        cidr: "{{ vvm_cidr }}"
+        ipam_range_start: "{{ vvm_ipam_start }}"
+        ipam_range_end: "{{ vvm_ipam_end }}"
+        timeout_seconds: "{{ vvm_wait_seconds | int }}"
+      register: net
+      when: vvm_state == 'present'
+
+    - name: Make the datastore
+      ibm.vvm.vvm_datastore:
+        name: "{{ vvm_name_prefix }}-ds"
+        cluster_id: "{{ vvm_cluster_id }}"
+        zone: "{{ vvm_zone }}"
+        mount_path: "{{ vvm_mount_path }}"
+        size_gib: "{{ vvm_size_gib | default(10) | int }}"
+        timeout_seconds: "{{ vvm_wait_seconds | int }}"
+      register: ds
+      when: vvm_state == 'present'
+
+    - name: Make the VM
+      ibm.vvm.vvm_vm:
+        name: "{{ vvm_name_prefix }}-vm"
+        cluster_id: "{{ vvm_cluster_id }}"
+        datastore_id: "{{ ds.datastore.id }}"
+        network_id: "{{ net.network.id }}"
+        vcpu_request: 1
+        memory_request_mib: 2048
+        golden_image: "{{ vvm_golden_image }}"
+        boot_disk_gib: 20
+        boot_subnet_id: "{{ vvm_boot_subnet_id }}"
+        cloud_init:
+          hostname: "{{ vvm_name_prefix }}-vm"
+          ssh_authorized_keys: ["{{ vvm_ssh_public_key }}"]
+        timeout_seconds: "{{ vvm_wait_seconds | int }}"
+      when: vvm_state == 'present'
+
+    - name: Remove the VM
+      ibm.vvm.vvm_vm:
+        name: "{{ vvm_name_prefix }}-vm"
+        cluster_id: "{{ vvm_cluster_id }}"
+        state: absent
+        timeout_seconds: "{{ vvm_wait_seconds | int }}"
+      when: vvm_state == 'absent'
+
+    - name: Remove the datastore
+      ibm.vvm.vvm_datastore:
+        name: "{{ vvm_name_prefix }}-ds"
+        cluster_id: "{{ vvm_cluster_id }}"
+        state: absent
+        timeout_seconds: "{{ vvm_wait_seconds | int }}"
+      when: vvm_state == 'absent'
+
+    - name: Remove the guest network
+      ibm.vvm.vvm_network:
+        name: "{{ vvm_name_prefix }}-net"
+        cluster_id: "{{ vvm_cluster_id }}"
+        state: absent
+        timeout_seconds: "{{ vvm_wait_seconds | int }}"
+      when: vvm_state == 'absent'
