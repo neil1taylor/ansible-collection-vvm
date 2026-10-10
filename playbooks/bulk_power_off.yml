@@ -1,0 +1,44 @@
+---
+# Turnkey: bulk power off every VM in the 'payments' project five at a time.
+#
+# Schematics Action: vvm-bulk-power-off
+# Trusted Profile:   vvm-bulk-power-actor
+# IAM policy:        Operator on the `vvm-cp` resource group, scoped to
+#                    the `vm.power` action only.
+# Inventory:         ibm.vvm.vvm dynamic inventory plugin; targets the
+#                    `project_payments` keyed_group.
+# Inputs:            none (project is pinned in the playbook to keep the
+#                    Action's blast radius small).
+#
+# Operator workflow: invoke the Action; review the post-shutdown debug
+# output for any VMs that fell back to hard stop.
+
+- name: Bulk power off VMs in the payments project
+  hosts: project_payments
+  gather_facts: false
+  serial: 5
+
+  tasks:
+    - name: Guest-shutdown {{ inventory_hostname }}
+      ibm.vvm.vvm_vm_power:
+        vm_id: "{{ inventory_hostname }}"
+        state: shutdown_guest
+        timeout_seconds: 300
+      register: shutdown
+      failed_when: shutdown.job.state not in ['succeeded', 'failed']
+
+    - name: Fall back to hard stop when guest shutdown failed
+      ibm.vvm.vvm_vm_power:
+        vm_id: "{{ inventory_hostname }}"
+        state: stopped
+        timeout_seconds: 60
+      when: shutdown.job.state == 'failed'
+      register: hard_stop
+
+    - name: Record final state for this VM
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}:
+          {% if shutdown.job.state == 'succeeded' %}clean shutdown
+          {% else %}hard stop {{ hard_stop.job.state | default('skipped') }}
+          {% endif %}

@@ -1,0 +1,52 @@
+---
+# Unenrol a VVM-managed VM from IBM Cloud Backup & Recovery (BRS).
+#
+# This playbook is dispatched by the VVM control-plane BRS service
+# by the control plane.
+# It stops and removes the BRS in-guest agent from the target VM so
+# that IBM Cloud Backup & Recovery no longer protects the VM.
+#
+# Note: unenrolment does NOT delete existing backup snapshots. Snapshot
+# retention is governed by the backup policy; contact IBM Cloud support
+# to purge existing snapshots.
+#
+# Extra vars supplied by the dispatcher:
+#   vm_id  — VVM UUID of the target VM (used for inventory lookup)
+#
+# Schematics Action: vvm-brs-unenrol
+# Trusted Profile:   vvm-brs-actor
+# IAM policy:        Operator on the `vvm-cp` resource group, scoped to
+#                    the `brs.unenrol` action.
+
+- name: Unenrol VM from IBM Cloud Backup & Recovery
+  hosts: "{{ vm_id }}"
+  gather_facts: false
+
+  tasks:
+    - name: Stop BRS agent service
+      ansible.builtin.service:
+        name: brs-agent
+        state: stopped
+        enabled: false
+      ignore_errors: true   # Service may already be stopped; continue to uninstall
+
+    - name: Remove BRS in-guest agent packages
+      ansible.builtin.package:
+        name: brs-agent
+        state: absent
+      register: brs_uninstall
+
+    - name: Remove BRS agent configuration directory
+      ansible.builtin.file:
+        path: /etc/brs-agent
+        state: absent
+
+    - name: Verify BRS agent service is gone
+      ansible.builtin.service_facts:
+
+    - name: Assert BRS agent service is not present
+      ansible.builtin.assert:
+        that:
+          - "'brs-agent' not in services or services['brs-agent'].state != 'running'"
+        fail_msg: "BRS agent service still running after uninstall — manual intervention required"
+        success_msg: "BRS agent successfully removed"

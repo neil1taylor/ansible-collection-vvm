@@ -1,0 +1,34 @@
+---
+# Turnkey: quarterly DR test against every VM in the 'payments' project.
+#
+# Schematics Action: vvm-quarterly-dr-test
+# Trusted Profile:   vvm-dr-test-actor
+# IAM policy:        Operator on the `vvm-cp` resource group, scoped to
+#                    the `vm.dr_test` action ONLY (no live writes).
+# Inventory:         ibm.vvm.vvm dynamic inventory plugin; targets the
+#                    `project_payments` keyed_group.
+# Outputs:           per-VM probe_ok + sandbox_vm_id surfaced via set_stats
+#                    so the Schematics run summary is greppable.
+#
+# Operator workflow: invoke the Action once per quarter; review set_stats
+# output in the Schematics run log for any probe_ok == false.
+
+- name: Quarterly DR test for the payments project
+  hosts: project_payments
+  gather_facts: false
+
+  tasks:
+    - name: SandboxBoot {{ inventory_hostname }} from latest recovery point
+      ibm.vvm.vvm_vm_dr_test:
+        vm_id: "{{ inventory_hostname }}"
+        recovery_point_id: latest
+        sandbox_ttl_minutes: 30
+      register: dr
+
+    - name: Capture probe outcome for the Schematics run summary
+      ansible.builtin.set_stats:
+        per_host: true
+        data:
+          probe_ok: "{{ dr.virtio_probe_ok | default(false) }}"
+          sandbox_vm_id: "{{ dr.sandbox_vm_id | default('') }}"
+          expires_at: "{{ dr.expires_at | default('') }}"

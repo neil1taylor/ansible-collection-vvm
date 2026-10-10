@@ -1,0 +1,20 @@
+---
+plugin: ibm.vvm.vvm
+cluster_id: cluster-1
+project: payments
+keyed_groups:
+  - key: cluster_id
+    prefix: cluster
+  - key: project
+    prefix: project
+  - key: region
+    prefix: region
+  - key: current_host_id
+    prefix: host
+  - key: dr_tier
+    prefix: dr
+  - key: paravirt_ready
+    prefix: paravirt
+compose:
+  ansible_host: primary_ip
+cache: false

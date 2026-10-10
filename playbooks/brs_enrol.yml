@@ -1,0 +1,49 @@
+---
+# Enrol a VVM-managed VM in IBM Cloud Backup & Recovery (BRS).
+#
+# This playbook is dispatched by the VVM control-plane BRS service
+# by the control plane.
+# It installs the BRS in-guest agent inside the target VM so that the
+# IBM Cloud Backup & Recovery service can discover and protect the VM.
+#
+# Extra vars supplied by the dispatcher:
+#   vm_id         — VVM UUID of the target VM (used for inventory lookup)
+#
+# Environment / vault vars expected at runtime:
+#   brs_installer_url  — URL of the BRS in-guest installer binary
+#   brs_sm_handle      — IBM Cloud Secrets Manager CRN used for BRS registration
+#
+# Schematics Action: vvm-brs-enrol
+# Trusted Profile:   vvm-brs-actor
+# IAM policy:        Operator on the `vvm-cp` resource group, scoped to
+#                    the `brs.enrol` action.
+
+- name: Enrol VM in IBM Cloud Backup & Recovery
+  hosts: "{{ vm_id }}"
+  gather_facts: false
+
+  tasks:
+    - name: Download BRS in-guest agent installer
+      ansible.builtin.get_url:
+        url: "{{ brs_installer_url }}"
+        dest: /tmp/brs-installer.run
+        mode: "0755"
+      when: brs_installer_url is defined and brs_installer_url != ""
+
+    - name: Run BRS in-guest agent installer
+      ansible.builtin.command:
+        cmd: /tmp/brs-installer.run --sm-handle "{{ brs_sm_handle }}" --non-interactive
+      register: brs_install
+      changed_when: brs_install.rc == 0
+      when: brs_sm_handle is defined and brs_sm_handle != ""
+
+    - name: Verify BRS agent service is running
+      ansible.builtin.service_facts:
+
+    - name: Assert BRS agent service is active
+      ansible.builtin.assert:
+        that:
+          - "'brs-agent' in services"
+          - "services['brs-agent'].state == 'running'"
+        fail_msg: "BRS agent service not running after install — check installer output"
+        success_msg: "BRS agent installed and running"

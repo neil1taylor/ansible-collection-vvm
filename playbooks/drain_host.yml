@@ -1,0 +1,36 @@
+---
+# Turnkey: drain one VVM host for maintenance.
+#
+# Schematics Action: vvm-drain-host
+# Trusted Profile:   vvm-host-drain-actor
+# IAM policy:        Operator on the `vvm-cp` resource group, scoped to
+#                    the `host.drain` and `vm.migrate` actions.
+# Inputs:            host_id (vars_prompt)
+# Outputs:           job.state, migrated/failed counts via debug
+#
+# Operator workflow: paste the VVM host id when prompted; the action drains
+# the host and follows the per-VM live-migration progress to completion.
+
+- name: Drain a single VVM host for maintenance
+  hosts: localhost
+  gather_facts: false
+  vars_prompt:
+    - name: host_id
+      prompt: "Host ID to drain"
+      private: false
+
+  tasks:
+    - name: Drain {{ host_id }} and follow to completion
+      ibm.vvm.vvm_host_drain:
+        host_id: "{{ host_id }}"
+        reason: "Schematics Action vvm-drain-host"
+        poll_until_empty: true
+        timeout_seconds: 3600
+      register: drain
+
+    - name: Report per-VM outcome counts
+      ansible.builtin.debug:
+        msg: >-
+          Drain of host {{ host_id }} ended in {{ drain.job.state }}.
+          {{ drain.vms_migrated | default([]) | length }} VM(s) migrated;
+          {{ drain.vms_failed | default([]) | length }} failed.

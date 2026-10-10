@@ -1,0 +1,7 @@
+# Intentionally empty.
+#
+# Modules in this collection use only ansible.module_utils.urls.Request from
+# the Python stdlib + ansible-core, so no third-party Python dependencies are
+# needed at runtime. This means ibm.vvm runs in the default Ansible execution
+# environment with no ansible-builder step, which matters for air-gapped
+# Schematics agents (spec §11).
