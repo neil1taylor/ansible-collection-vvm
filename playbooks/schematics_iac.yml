@@ -9,6 +9,9 @@
 #   vvm_vlan_id, vvm_vpc_subnet_id, vvm_cidr, vvm_ipam_start, vvm_ipam_end
 #   vvm_zone, vvm_mount_path, vvm_size_gib (optional, 10)
 #   vvm_golden_image, vvm_boot_subnet_id, vvm_ssh_public_key
+#   vvm_with_vm        true (default) or false. False makes the network and the
+#                      datastore only: a new datastore is empty, so the golden
+#                      image goes onto it before the VM is asked for.
 #
 # With vvm_state=absent only the cluster and the prefix are used to find what
 # to remove: each resource is addressed by name.
@@ -18,6 +21,7 @@
   gather_facts: false
   vars:
     vvm_state: present
+    vvm_with_vm: true
     vvm_wait_seconds: 3600
   module_defaults:
     ibm.vvm.vvm_network: &conn
@@ -70,7 +74,7 @@
           hostname: "{{ vvm_name_prefix }}-vm"
           ssh_authorized_keys: ["{{ vvm_ssh_public_key }}"]
         timeout_seconds: "{{ vvm_wait_seconds | int }}"
-      when: vvm_state == 'present'
+      when: vvm_state == 'present' and vvm_with_vm | bool
 
     - name: Remove the VM
       ibm.vvm.vvm_vm:
