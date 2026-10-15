@@ -13,6 +13,12 @@
 #                      datastore only: a new datastore is empty, so the golden
 #                      image goes onto it before the VM is asked for.
 #
+# Schematics clones the collection's repository and runs this file from it, with no
+# copy of the collection installed. The published repository therefore holds a link,
+# playbooks/collections/ansible_collections/ibm/vvm, to its own root, so that the
+# ibm.vvm modules below resolve. Without it Ansible stops with "Could not resolve
+# action ibm.vvm.vvm_network in module_defaults".
+#
 # With vvm_state=absent only the cluster and the prefix are used to find what
 # to remove: each resource is addressed by name.
 
