@@ -1,0 +1,33 @@
+namespace: ibm
+name: vvm
+version: 0.1.0
+readme: README.md
+authors:
+  - VVM platform team <vvm@example.com>
+description: >
+  Ansible collection for the IBM Cloud VPC Virtualization Manager (VVM).
+  Operational verbs + dynamic inventory. All modules call the VVM API;
+  none bypass it to reach libvirt, IBM Cloud SDK, qemu-img, or the host
+  agent.
+license:
+  - MIT
+tags:
+  - ibm
+  - cloud
+  - vpc
+  - vvm
+  - virtualization
+  - kvm
+  - libvirt
+dependencies: {}
+repository: https://github.com/neil1taylor/ansible-collection-vvm
+documentation: https://github.com/neil1taylor/ansible-collection-vvm
+homepage: https://github.com/neil1taylor/ansible-collection-vvm
+issues: https://github.com/neil1taylor/ansible-collection-vvm
+build_ignore:
+  - tests/output
+  - tests/integration/inventory
+  - .vscode
+  - .idea
+  - .venv
+  - "*.tar.gz"
